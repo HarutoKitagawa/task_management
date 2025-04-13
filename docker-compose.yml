@@ -8,3 +8,20 @@ services:
       - ./backend:/app
     ports:
       - "8000:8000"
+    environment:
+      - DATABASE_URL=mysql+pymysql://mysqlusername:mysqluserpass@db:3306/taskdb
+      - JWT_SECRET_KEY=aefc4d41a52720ca3edcbcf7d32ae1d010382be2a7b6bb27a0aa2fb3bd6cc23c
+  
+  db:
+    image: mysql:latest
+    environment:
+      MYSQL_ROOT_PASSWORD: mysqlrootpass
+      MYSQL_DATABASE: taskdb
+      MYSQL_USER: mysqlusername
+      MYSQL_PASSWORD: mysqluserpass
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+volumes:
+  mysql-data:
