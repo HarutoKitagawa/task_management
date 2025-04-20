@@ -55,7 +55,7 @@ def create_task(
     db.refresh(new_task)
     return TaskOut.model_validate(new_task)
 
-@router.get("", response_model=List[TaskOut])
+@router.get("", response_model=TasksGetOut)
 def get_tasks(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -80,14 +80,12 @@ def get_tasks(
             Task.id.in_(assigned_task_ids),
             Task.deleted_at.is_(None)
         ).all()]
-
-    # Combine and return unique tasks
-    all_tasks = {task.id: TaskOut.model_validate(task) for task in owned_tasks}
-    for task in assigned_tasks:
-        if task.id not in all_tasks:
-            all_tasks[task.id] = task
     
-    return list(all_tasks.values())
+    return TasksGetOut(
+        owned_tasks=[TaskOut.model_validate(task) for task in owned_tasks],
+        assigned_tasks=assigned_tasks
+    )
+    
 
 @router.get("/{task_id}", response_model=TaskDetailOut)
 def get_task(

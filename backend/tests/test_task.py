@@ -48,11 +48,10 @@ def test_get_tasks(user1, create_task):
     
     assert response.status_code == 200
     data = response.json()
-    assert isinstance(data, list)
     assert len(data) >= 1
     
     # Check if our created task is in the list
-    task_ids = [task["id"] for task in data]
+    task_ids = [task["id"] for task in data['owned_tasks']]
     assert task_id in task_ids
 
 def test_get_task_detail(user1, create_task):
@@ -146,8 +145,7 @@ def test_assign_users_to_task(user1, user2, create_task):
     response = client.get("/tasks", headers=headers)
     assert response.status_code == 200
     data = response.json()
-    assert isinstance(data, list)
-    task_ids = [task["id"] for task in data]
+    task_ids = [task["id"] for task in data['assigned_tasks']]
     assert task_id in task_ids
     
     # Test that user2 can now access the task
