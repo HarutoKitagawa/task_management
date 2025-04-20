@@ -1,5 +1,16 @@
 # Task Managent
 
+## Table of Contents
+- [About](#about)
+- [Requirements](#requirements)
+- [Setup](#setup)
+- [How to use](#how-to-use)
+- [API Spec](#api-spec)
+  - [Sign up and Login](#sign-up-and-login)
+  - [Users](#users)
+  - [Tasks](#tasks)
+- [Testing](#testing)
+
 ## About
 Simple task management app built with FastAPI. This app includes the following features:
 - User registration and authentication
@@ -31,6 +42,7 @@ The Swagger UI is available at http://localhost:8000/docs — you can use it to 
 - To login, please click on the "Authorize" button in the top right corner of the Swagger UI and enter your username and password. This will allow you to access the endpoints that require authentication.
 
 ## API Spec
+### Sign up and Login
 - Sign up: `POST /signup`
 Request body:
 ```json
@@ -99,3 +111,9 @@ Request body:
 ```
 - **Remove a user from a task**: `DELETE /tasks/{task_id}/assignees/{user_id}`  
 **Access**: Only the task creator
+
+## Testing
+- To run the backend tests, use the following command:
+```bash
+make pytest
+```
