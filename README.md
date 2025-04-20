@@ -1,6 +1,4 @@
-# Task Managent
-
-## Table of Contents
+# Table of Contents
 - [About](#about)
 - [Requirements](#requirements)
 - [Setup](#setup)
@@ -11,18 +9,18 @@
   - [Tasks](#tasks)
 - [Testing](#testing)
 
-## About
+# About
 Simple task management app built with FastAPI. This app includes the following features:
 - User registration and authentication
 - Task creation and management
 - Task assignment to users
 - Task status management
 
-## Requirements
+# Requirements
 - Docker/Docker Compose
 - GNU Make
 
-## Setup
+# Setup
 - Clone the repository
 ```bash
 git clone git@github.com:HarutoKitagawa/task_management.git
@@ -36,12 +34,36 @@ docker-compose up -d
 make migrate-up
 ```
 
-## How to use
+# How to use
 The Swagger UI is available at http://localhost:8000/docs — you can use it to view and test the API after starting the server.
 - To create a new user, you can use the `/signup` endpoint.
 - To login, please click on the "Authorize" button in the top right corner of the Swagger UI and enter your username and password. This will allow you to access the endpoints that require authentication.
 
-## API Spec
+## Recommended API usage flows for implementing frontend features
+You can follow the sequences below when implementing each feature on the frontend:
+
+### Sign up and Login
+- **Sign up**: `POST /signup`
+- **Login**: `POST /login`
+
+### Create and manage tasks
+- **Create task**: `POST /tasks`
+- **Get all tasks**: `GET /tasks`
+- **Get task by ID**: `GET /tasks/{task_id}`
+- **Update task**: `PUT /tasks/{task_id}`
+
+### Assign users to a task
+- **Get all tasks**: `GET /tasks`
+- (**Get task by ID**: `GET /tasks/{task_id}`)
+- **List users**: `GET /users`
+- **Assign users to a task**: `POST /tasks/{task_id}/assignees`
+
+### Assignee update task status
+- **Get all tasks**: `GET /tasks`
+- (**Get task by ID**: `GET /tasks/{task_id}`)
+- **Update task status**: `PATCH /tasks/{task_id}/status`
+
+# API Spec
 ### Sign up and Login
 - Sign up: `POST /signup`
 Request body:
