@@ -2,6 +2,7 @@
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from fastapi.testclient import TestClient
 
 from src.backend.models import Base
 from src.backend.database import get_db
@@ -26,3 +27,41 @@ def setup_database():
     app.dependency_overrides[get_db] = override_get_db
     yield
     Base.metadata.drop_all(bind=engine)
+
+client = TestClient(app)
+
+@pytest.fixture
+def user1():
+    # Create a test user
+    signup_data = {
+        "username": "taskuser1",
+        "password": "securepassword123"
+    }
+    client.post("/signup", json=signup_data)
+    
+    # Login to get token
+    login_data = {
+        "username": "taskuser1",
+        "password": "securepassword123"
+    }
+    response = client.post("/login", data=login_data)
+    json_data = response.json()
+    return json_data['id'], json_data["token"]["access_token"]
+
+@pytest.fixture
+def user2():
+    # Create another test user
+    signup_data = {
+        "username": "taskuser2",
+        "password": "securepassword123"
+    }
+    client.post("/signup", json=signup_data)
+    
+    # Login to get token
+    login_data = {
+        "username": "taskuser2",
+        "password": "securepassword123"
+    }
+    response = client.post("/login", data=login_data)
+    json_data = response.json()
+    return json_data['id'], json_data["token"]["access_token"]
