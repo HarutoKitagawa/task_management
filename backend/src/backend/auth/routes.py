@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from fastapi.security import OAuth2PasswordRequestForm
 from ..database import get_db
 from ..models import User
-from .schemas import UserCreate, SignupOut, Token
+from .schemas import UserCreate, SignupOut, LoginOut
 from .utils import get_password_hash, verify_password, create_access_token
 from .dependencies import get_user
 
@@ -27,9 +27,9 @@ def signup(user_create: UserCreate, db: Session = Depends(get_db)):
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
-    return new_user
+    return SignupOut.model_validate(new_user)
 
-@router.post("/login", response_model=Token)
+@router.post("/login", response_model=LoginOut)
 def login_for_access_token(
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: Session = Depends(get_db)
@@ -43,4 +43,11 @@ def login_for_access_token(
         )
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(user.username, access_token_expires)
-    return Token(access_token=access_token, token_type="bearer")
+    return LoginOut(
+        id=user.id,
+        username=user.username,
+        token={
+            "access_token": access_token,
+            "token_type": "bearer"
+        }
+    )

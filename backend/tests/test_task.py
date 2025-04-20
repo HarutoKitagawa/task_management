@@ -6,7 +6,7 @@ from src.backend.main import app
 client = TestClient(app)
 
 @pytest.fixture
-def user1_token():
+def user1():
     # Create a test user
     signup_data = {
         "username": "taskuser1",
@@ -20,10 +20,11 @@ def user1_token():
         "password": "securepassword123"
     }
     response = client.post("/login", data=login_data)
-    return response.json()["access_token"]
+    json_data = response.json()
+    return json_data['id'], json_data["token"]["access_token"]
 
 @pytest.fixture
-def user2_token():
+def user2():
     # Create another test user
     signup_data = {
         "username": "taskuser2",
@@ -37,10 +38,11 @@ def user2_token():
         "password": "securepassword123"
     }
     response = client.post("/login", data=login_data)
-    return response.json()["access_token"]
+    json_data = response.json()
+    return json_data['id'], json_data["token"]["access_token"]
 
 @pytest.fixture
-def create_task(user1_token):
+def create_task(user1):
     """Fixture to create a task and return its ID"""
     task_data = {
         "title": "Test Task",
@@ -48,14 +50,14 @@ def create_task(user1_token):
         "due_date": (datetime.now(timezone.utc) + timedelta(days=1)).isoformat()
     }
     
-    headers = {"Authorization": f"Bearer {user1_token}"}
+    headers = {"Authorization": f"Bearer {user1[1]}"}
     response = client.post("/tasks", json=task_data, headers=headers)
     
     assert response.status_code == 201
     data = response.json()
     return data["id"]
 
-def test_create_task(user1_token):
+def test_create_task(user1):
     # Test creating a task
     task_data = {
         "title": "Test Task",
@@ -63,7 +65,7 @@ def test_create_task(user1_token):
         "due_date": (datetime.now(timezone.utc) + timedelta(days=1)).isoformat()
     }
     
-    headers = {"Authorization": f"Bearer {user1_token}"}
+    headers = {"Authorization": f"Bearer {user1[1]}"}
     response = client.post("/tasks", json=task_data, headers=headers)
     
     assert response.status_code == 201
@@ -71,13 +73,13 @@ def test_create_task(user1_token):
     assert data["title"] == task_data["title"]
     assert data["description"] == task_data["description"]
     assert "id" in data
-    assert "owner" in data
+    assert data["owner"]["id"] == user1[0]
 
-def test_get_tasks(user1_token, create_task):
+def test_get_tasks(user1, create_task):
     # Test getting all tasks
     task_id = create_task
     
-    headers = {"Authorization": f"Bearer {user1_token}"}
+    headers = {"Authorization": f"Bearer {user1[1]}"}
     response = client.get("/tasks", headers=headers)
     
     assert response.status_code == 200
@@ -89,11 +91,11 @@ def test_get_tasks(user1_token, create_task):
     task_ids = [task["id"] for task in data]
     assert task_id in task_ids
 
-def test_get_task_detail(user1_token, create_task):
+def test_get_task_detail(user1, create_task):
     # Test getting a specific task
     task_id = create_task
     
-    headers = {"Authorization": f"Bearer {user1_token}"}
+    headers = {"Authorization": f"Bearer {user1[1]}"}
     response = client.get(f"/tasks/{task_id}", headers=headers)
     
     assert response.status_code == 200
@@ -102,7 +104,7 @@ def test_get_task_detail(user1_token, create_task):
     assert "assignees" in data
     assert isinstance(data["assignees"], list)
 
-def test_update_task(user1_token, create_task):
+def test_update_task(user1, create_task):
     # Test updating the task
     task_id = create_task
     
@@ -112,7 +114,7 @@ def test_update_task(user1_token, create_task):
         "status": "IN_PROGRESS",
     }
     
-    headers = {"Authorization": f"Bearer {user1_token}"}
+    headers = {"Authorization": f"Bearer {user1[1]}"}
     response = client.put(f"/tasks/{task_id}", json=update_data, headers=headers)
     
     assert response.status_code == 200
@@ -122,7 +124,7 @@ def test_update_task(user1_token, create_task):
     assert data["description"] == update_data["description"]
     assert data["status"] == update_data["status"]
 
-def test_update_task_status(user1_token, create_task):
+def test_update_task_status(user1, create_task):
     # Test updating the task status
     task_id = create_task
 
@@ -130,18 +132,18 @@ def test_update_task_status(user1_token, create_task):
         "status": "COMPLETED"
     }
 
-    header = {"Authorization": f"Bearer {user1_token}"}
+    header = {"Authorization": f"Bearer {user1[1]}"}
     response = client.patch(f"/tasks/{task_id}/status", json=update_data, headers=header)
     assert response.status_code == 200
     data = response.json()
     assert data["id"] == task_id
     assert data["status"] == update_data["status"]
 
-def test_delete_task(user1_token, create_task):
+def test_delete_task(user1, create_task):
     # Test deleting the task
     task_id = create_task
     
-    headers = {"Authorization": f"Bearer {user1_token}"}
+    headers = {"Authorization": f"Bearer {user1[1]}"}
     response = client.delete(f"/tasks/{task_id}", headers=headers)
     
     assert response.status_code == 204
@@ -150,21 +152,20 @@ def test_delete_task(user1_token, create_task):
     response = client.get(f"/tasks/{task_id}", headers=headers)
     assert response.status_code == 404
 
-def test_assign_users_to_task(user1_token, user2_token, create_task):
+def test_assign_users_to_task(user1, user2, create_task):
     # Get the task ID
     task_id = create_task
     
     # Get user2's ID
-    headers = {"Authorization": f"Bearer {user2_token}"}
-    response = client.get("/users/me", headers=headers)
-    user2_id = response.json()["id"]
+    headers = {"Authorization": f"Bearer {user2[1]}"}
+    user2_id = user2[0]
     
     # Assign user2 to the task
     assign_data = {
         "user_ids": [user2_id]
     }
     
-    headers = {"Authorization": f"Bearer {user1_token}"}
+    headers = {"Authorization": f"Bearer {user1[1]}"}
     response = client.post(f"/tasks/{task_id}/assignees", json=assign_data, headers=headers)
     
     assert response.status_code == 200
@@ -175,7 +176,7 @@ def test_assign_users_to_task(user1_token, user2_token, create_task):
     assignee_ids = [assignee["id"] for assignee in data["assignees"]]
     assert user2_id in assignee_ids
 
-    headers = {"Authorization": f"Bearer {user2_token}"}
+    headers = {"Authorization": f"Bearer {user2[1]}"}
 
     # Test that task list of user2 includes the task
     response = client.get("/tasks", headers=headers)
@@ -189,21 +190,20 @@ def test_assign_users_to_task(user1_token, user2_token, create_task):
     response = client.get(f"/tasks/{task_id}", headers=headers)
     assert response.status_code == 200
 
-def test_remove_assignee_from_task(user1_token, user2_token, create_task):
+def test_remove_assignee_from_task(user1, user2, create_task):
     # Get the task ID
     task_id = create_task
     
     # Get user2's ID
-    headers = {"Authorization": f"Bearer {user2_token}"}
-    response = client.get("/users/me", headers=headers)
-    user2_id = response.json()["id"]
+    headers = {"Authorization": f"Bearer {user2[1]}"}
+    user2_id = user2[0]
     
     # Assign user2 to the task
     assign_data = {
         "user_ids": [user2_id]
     }
     
-    headers = {"Authorization": f"Bearer {user1_token}"}
+    headers = {"Authorization": f"Bearer {user1[1]}"}
     client.post(f"/tasks/{task_id}/assignees", json=assign_data, headers=headers)
     
     # Remove user2 from the task
@@ -211,16 +211,16 @@ def test_remove_assignee_from_task(user1_token, user2_token, create_task):
     assert response.status_code == 204
     
     # Verify user2 can no longer access the task
-    headers = {"Authorization": f"Bearer {user2_token}"}
+    headers = {"Authorization": f"Bearer {user2[1]}"}
     response = client.get(f"/tasks/{task_id}", headers=headers)
     assert response.status_code == 403
 
-def test_authorization_restrictions(user1_token, user2_token, create_task):
+def test_authorization_restrictions(user1, user2, create_task):
     # Get the task ID
     task_id = create_task
     
     # Try to access with user2 (should fail)
-    headers = {"Authorization": f"Bearer {user2_token}"}
+    headers = {"Authorization": f"Bearer {user2[1]}"}
     response = client.get(f"/tasks/{task_id}", headers=headers)
     assert response.status_code == 403
     
@@ -243,16 +243,15 @@ def test_authorization_restrictions(user1_token, user2_token, create_task):
     response = client.post(f"/tasks/{task_id}/assignees", json=assign_data, headers=headers)
     assert response.status_code == 403
 
-def test_assignee_can_update_task_status(user1_token, user2_token, create_task):
+def test_assignee_can_update_task_status(user1, user2, create_task):
     task_id = create_task
 
     # Assign user2 to the task
-    headers_user2 = {"Authorization": f"Bearer {user2_token}"}
-    response = client.get("/users/me", headers=headers_user2)
-    user2_id = response.json()["id"]
+    headers_user2 = {"Authorization": f"Bearer {user2[1]}"}
+    user2_id = user2[0]
 
     # Assign user2 to the task
-    headers_user1 = {"Authorization": f"Bearer {user1_token}"}
+    headers_user1 = {"Authorization": f"Bearer {user1[1]}"}
     assign_data = {"user_ids": [user2_id]}
     response = client.post(f"/tasks/{task_id}/assignees", json=assign_data, headers=headers_user1)
     assert response.status_code == 200
