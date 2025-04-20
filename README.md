@@ -7,6 +7,7 @@
   - [Sign up and Login](#sign-up-and-login)
   - [Users](#users)
   - [Tasks](#tasks)
+  - [Notifications](#notifications)
 - [Testing](#testing)
 
 # About
@@ -15,6 +16,7 @@ Simple task management app built with FastAPI. This app includes the following f
 - Task creation and management
 - Task assignment to users
 - Task status management
+- Notification system based on task events (e.g., assignment, status changes)
 
 # Requirements
 - Docker/Docker Compose
@@ -134,8 +136,33 @@ Request body:
 - **Remove a user from a task**: `DELETE /tasks/{task_id}/assignees/{user_id}`  
 **Access**: Only the task creator
 
+### Notifications
+- **Get unread notifications**: `GET /users/notifications`  
+**Access**: Authenticated users  
+**Description**:  
+This endpoint returns a list of unread notifications for the authenticated user.  
+Notifications are generated automatically based on specific task-related events.
+
+Currently, the application supports two types of notification-triggering events:
+
+1. **Task Assignment**  
+   When a user assigns one or more users to a task using `POST /tasks/{task_id}/assignees`, each assigned user will receive a notification.  
+   The notification includes a message such as:  
+   _"You have been assigned to the task 'Design review' by UserA."_
+
+2. **Task Status Change**  
+   When the status of a task is changed via `PUT /tasks/{task_id}` or `PATCH /tasks/{task_id}/status`, notifications are sent to all participants in the task — including the task owner and all assignees.  
+
+These notifications are based on structured **task events**, which are also stored separately.  
+This allows not only notification delivery but also richer activity logs (e.g., task history on detail pages).
+
+Each notification includes a human-readable message and an unread flag. 
+
 ## Testing
 - To run the backend tests, use the following command:
 ```bash
 make pytest
 ```
+
+## DB Structure
+![taskdb](https://github.com/user-attachments/assets/3abf208b-1e7b-4190-bca6-5c97750557a0)
