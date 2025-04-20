@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 class Token(BaseModel):
     access_token: str
@@ -8,6 +8,15 @@ class UserCreate(BaseModel):
     username: str = Field(..., max_length=255)
     password: str = Field(..., min_length=6)
 
-class SignupOut(BaseModel):
+class UserOut(BaseModel):
     id: int
-    username: str
+    username: str = Field(..., max_length=255)
+
+    model_config = ConfigDict(
+        from_attributes=True,
+    )
+
+class SignupOut(UserOut):
+    pass
+class LoginOut(UserOut):
+    token: Token
