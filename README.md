@@ -5,6 +5,7 @@ Simple task management app built with FastAPI. This app includes the following f
 - User registration and authentication
 - Task creation and management
 - Task assignment to users
+- Task status management
 
 ## Requirements
 - Docker/Docker Compose
@@ -68,6 +69,14 @@ Request body:
     "title": "string (optional)",
     "description": "string (optional)",
     "due_date": "string (optional, ISO 8601 format)"
+}
+```
+- **Update task status**: `PATCH /tasks/{task_id}/status`  
+**Access**: Only the task creator or assignee  
+Request body:
+```json
+{
+    "status": "string (optional, one of: 'PENDING', 'IN_PROGRESS', 'COMPLETED')"
 }
 ```
 - **Delete task**: `DELETE /tasks/{task_id}`  
