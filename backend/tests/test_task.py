@@ -108,7 +108,8 @@ def test_update_task(user1_token, create_task):
     
     update_data = {
         "title": "Updated Task Title",
-        "description": "Updated task description"
+        "description": "Updated task description",
+        "status": "IN_PROGRESS",
     }
     
     headers = {"Authorization": f"Bearer {user1_token}"}
@@ -119,6 +120,22 @@ def test_update_task(user1_token, create_task):
     assert data["id"] == task_id
     assert data["title"] == update_data["title"]
     assert data["description"] == update_data["description"]
+    assert data["status"] == update_data["status"]
+
+def test_update_task_status(user1_token, create_task):
+    # Test updating the task status
+    task_id = create_task
+
+    update_data = {
+        "status": "COMPLETED"
+    }
+
+    header = {"Authorization": f"Bearer {user1_token}"}
+    response = client.patch(f"/tasks/{task_id}/status", json=update_data, headers=header)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["id"] == task_id
+    assert data["status"] == update_data["status"]
 
 def test_delete_task(user1_token, create_task):
     # Test deleting the task
@@ -211,6 +228,11 @@ def test_authorization_restrictions(user1_token, user2_token, create_task):
     update_data = {"title": "Unauthorized Update"}
     response = client.put(f"/tasks/{task_id}", json=update_data, headers=headers)
     assert response.status_code == 403
+
+    # Try to update status with user2 (should fail)
+    update_data = {"status": "COMPLETED"}
+    response = client.patch(f"/tasks/{task_id}/status", json=update_data, headers=headers)
+    assert response.status_code == 403
     
     # Try to delete with user2 (should fail)
     response = client.delete(f"/tasks/{task_id}", headers=headers)
@@ -220,3 +242,25 @@ def test_authorization_restrictions(user1_token, user2_token, create_task):
     assign_data = {"user_ids": [1]}
     response = client.post(f"/tasks/{task_id}/assignees", json=assign_data, headers=headers)
     assert response.status_code == 403
+
+def test_assignee_can_update_task_status(user1_token, user2_token, create_task):
+    task_id = create_task
+
+    # Assign user2 to the task
+    headers_user2 = {"Authorization": f"Bearer {user2_token}"}
+    response = client.get("/users/me", headers=headers_user2)
+    user2_id = response.json()["id"]
+
+    # Assign user2 to the task
+    headers_user1 = {"Authorization": f"Bearer {user1_token}"}
+    assign_data = {"user_ids": [user2_id]}
+    response = client.post(f"/tasks/{task_id}/assignees", json=assign_data, headers=headers_user1)
+    assert response.status_code == 200
+
+    # User2 should be able to update the task status
+    update_data = {"status": "IN_PROGRESS"}
+    response = client.patch(f"/tasks/{task_id}/status", json=update_data, headers=headers_user2)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["id"] == task_id
+    assert data["status"] == "IN_PROGRESS"

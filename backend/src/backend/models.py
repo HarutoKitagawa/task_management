@@ -1,6 +1,8 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Enum
 from sqlalchemy.orm import declarative_base, relationship
 from datetime import datetime, timezone
+
+from src.backend.consts import TaskStatus
 
 Base = declarative_base()
 
@@ -23,6 +25,7 @@ class Task(Base):
     title = Column(String(255), nullable=False)
     description = Column(String(255), nullable=False)
     due_date = Column(DateTime(timezone=True), nullable=True)
+    status = Column(Enum(TaskStatus), default=TaskStatus.PENDING, nullable=False)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
     deleted_at = Column(DateTime(timezone=True), nullable=True)
