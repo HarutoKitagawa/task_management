@@ -1,8 +1,8 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Enum
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Enum, JSON
 from sqlalchemy.orm import declarative_base, relationship
 from datetime import datetime, timezone
 
-from src.backend.consts import TaskStatus
+from src.backend.consts import TaskStatus, TaskEventType
 
 Base = declarative_base()
 
@@ -18,6 +18,8 @@ class User(Base):
 
     tasks = relationship("Task", back_populates="owner", foreign_keys="Task.owner_id")
     assigned_tasks = relationship("TaskAssignee", back_populates="user", foreign_keys="TaskAssignee.user_id")
+    task_events = relationship("TaskEvent", back_populates="actor", foreign_keys="TaskEvent.actor_id")
+    notifications = relationship("Notification", back_populates="user", foreign_keys="Notification.user_id")
 
 class Task(Base):
     __tablename__ = "tasks"
@@ -33,6 +35,7 @@ class Task(Base):
 
     owner = relationship("User", back_populates="tasks", foreign_keys=[owner_id])
     assignees = relationship("TaskAssignee", back_populates="task", foreign_keys="TaskAssignee.task_id")
+    events = relationship("TaskEvent", back_populates="task", foreign_keys="TaskEvent.task_id")
 
 class TaskAssignee(Base):
     __tablename__ = "task_assignees"
@@ -45,3 +48,29 @@ class TaskAssignee(Base):
 
     task = relationship("Task", back_populates="assignees", foreign_keys=[task_id])
     user = relationship("User", back_populates="assigned_tasks", foreign_keys=[user_id])
+
+class TaskEvent(Base):
+    __tablename__ = "task_events"
+    id = Column(Integer, primary_key=True)
+    task_id = Column(Integer, ForeignKey("tasks.id"), nullable=False)
+    actor_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    event_type = Column(Enum(TaskEventType), nullable=False)
+    payload = Column(JSON, nullable=False)
+    message = Column(String(255), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
+
+    task = relationship("Task", back_populates="events", foreign_keys=[task_id])
+    actor = relationship("User", back_populates="task_events", foreign_keys=[actor_id])
+    notifications = relationship("Notification", back_populates="task_event", foreign_keys="Notification.task_event_id")
+
+class Notification(Base):
+    __tablename__ = "notifications"
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    task_event_id = Column(Integer, ForeignKey("task_events.id"), nullable=False)
+    message = Column(String(255), nullable=False)
+    is_read = Column(Integer, default=0, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
+
+    user = relationship("User", back_populates="notifications", foreign_keys=[user_id])
+    task_event = relationship("TaskEvent", back_populates="notifications", foreign_keys=[task_event_id])

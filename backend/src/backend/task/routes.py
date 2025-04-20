@@ -6,6 +6,7 @@ from ..auth.dependencies import get_current_user
 from ..database import get_db
 from ..models import User, Task, TaskAssignee
 from .permission import get_task_with_perticipant_check, get_task_with_owner_check
+from .event import TaskAssignmentEvent, TaskStatusUpdatedEvent
 from .schemas import *
 
 router = APIRouter(prefix="/tasks", tags=["tasks"])
@@ -78,6 +79,7 @@ def get_task(
         title=task.title,
         description=task.description,
         due_date=task.due_date,
+        status=task.status,
         owner=UserOut.model_validate(task.owner),
         created_at=task.created_at,
         updated_at=task.updated_at,
@@ -88,6 +90,7 @@ def get_task(
 def update_task(
     task_update: TaskUpdate,
     task: Task = Depends(get_task_with_owner_check),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     # Update fields if provided
@@ -97,12 +100,26 @@ def update_task(
         task.description = task_update.description
     if task_update.due_date is not None:
         task.due_date = task_update.due_date
-    if task_update.status is not None:
+    task_status_updated = (
+        task_update.status is not None and
+        task.status != task_update.status
+    )
+    old_status = task.status
+    if task_status_updated:
         task.status = task_update.status
     
     task.updated_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(task)
+
+    # Create task status updated event
+    if task_status_updated:
+        TaskStatusUpdatedEvent(
+            task,
+            current_user,
+            old_status,
+            task.status
+        ).save(db)
     
     return task
 
@@ -110,12 +127,26 @@ def update_task(
 def update_task_status(
     task_status_update: TaskStatusUpdate,
     task: Task = Depends(get_task_with_perticipant_check),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):    
+    old_status = task.status
+    task_status_updated = old_status != task_status_update.status
+    if not task_status_updated:
+        return TaskOut.model_validate(task)
     # Update status
     task.status = task_status_update.status
     task.updated_at = datetime.now(timezone.utc)
     db.commit()
+    db.refresh(task)
+
+    # Create task status updated event
+    TaskStatusUpdatedEvent(
+        task,
+        current_user,
+        old_status,
+        task.status
+    ).save(db)
     
     return TaskOut.model_validate(task)
 
@@ -155,26 +186,34 @@ def assign_users_to_task(
     ).all()
     existing_user_ids = [assignee.user_id for assignee in existing_assignees]
     
+    new_assignee_ids = set(user_ids) - set(existing_user_ids)
     # Add new assignees
-    for user_id in user_ids:
-        if user_id not in existing_user_ids:
-            new_assignee = TaskAssignee(
-                task_id=task.id,
-                user_id=user_id
-            )
-            db.add(new_assignee)
+    for user_id in new_assignee_ids:
+        new_assignee = TaskAssignee(
+            task_id=task.id,
+            user_id=user_id
+        )
+        db.add(new_assignee)
     
     db.commit()
-    
-    # Get updated assignees for response
-    assignees = db.query(User).join(
-        TaskAssignee, User.id == TaskAssignee.user_id
-    ).filter(
-        TaskAssignee.task_id == task.id,
-        TaskAssignee.deleted_at.is_(None)
+
+    new_assignees = db.query(User).filter(
+        User.id.in_(new_assignee_ids)
     ).all()
 
-    print(task.assignees)
+    # Create task assignment event
+    for assignee in new_assignees:
+        TaskAssignmentEvent(
+            task,
+            task.owner,
+            assignee
+        ).save(db)
+    
+    # Get updated assignees for response
+    existing_assignee_users = db.query(User).filter(
+        User.id.in_(existing_user_ids)
+    ).all()
+    assignees = list(new_assignees) + list(existing_assignee_users)
     
     # Create response with assignees
     return TaskDetailOut(
