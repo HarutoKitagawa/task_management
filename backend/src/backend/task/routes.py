@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from ..auth.dependencies import get_current_user
 from ..database import get_db
 from ..models import User, Task, TaskAssignee
-from .schemas import TaskCreate, TaskUpdate, TaskOut, TaskDetailOut, TaskAssigneeCreate, UserOut
+from .schemas import *
 
 router = APIRouter(prefix="/tasks", tags=["tasks"])
 
@@ -53,7 +53,7 @@ def create_task(
     db.add(new_task)
     db.commit()
     db.refresh(new_task)
-    return TaskOut.model_validate(new_task, from_attributes=True)
+    return TaskOut.model_validate(new_task)
 
 @router.get("", response_model=List[TaskOut])
 def get_tasks(
@@ -76,13 +76,13 @@ def get_tasks(
     
     assigned_tasks = []
     if assigned_task_ids:
-        assigned_tasks = [TaskOut.model_validate(task, from_attributes=True) for task in db.query(Task).filter(
+        assigned_tasks = [TaskOut.model_validate(task) for task in db.query(Task).filter(
             Task.id.in_(assigned_task_ids),
             Task.deleted_at.is_(None)
         ).all()]
-    
+
     # Combine and return unique tasks
-    all_tasks = {task.id: TaskOut.model_validate(task, from_attributes=True) for task in owned_tasks}
+    all_tasks = {task.id: TaskOut.model_validate(task) for task in owned_tasks}
     for task in assigned_tasks:
         if task.id not in all_tasks:
             all_tasks[task.id] = task
@@ -123,10 +123,10 @@ def get_task(
         title=task.title,
         description=task.description,
         due_date=task.due_date,
-        owner=UserOut.model_validate(task.owner, from_attributes=True),
+        owner=UserOut.model_validate(task.owner),
         created_at=task.created_at,
         updated_at=task.updated_at,
-        assignees=[UserOut.model_validate(user, from_attributes=True) for user in assignees]
+        assignees=[UserOut.model_validate(user) for user in assignees]
     )
 
 @router.put("/{task_id}", response_model=TaskOut)
@@ -157,12 +157,42 @@ def update_task(
         task.description = task_update.description
     if task_update.due_date is not None:
         task.due_date = task_update.due_date
+    if task_update.status is not None:
+        task.status = task_update.status
     
     task.updated_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(task)
     
     return task
+
+@router.patch("/{task_id}/status", response_model=TaskOut)
+def update_task_status(
+    task_id: int,
+    task_status_update: TaskStatusUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    task = db.query(Task).filter(
+        Task.id == task_id,
+        Task.deleted_at.is_(None)
+    ).first()
+    
+    if not task:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Task not found"
+        )
+    
+    # Check if user is the owner or assignee
+    check_task_access(task, current_user, db)
+    
+    # Update status
+    task.status = task_status_update.status
+    task.updated_at = datetime.now(timezone.utc)
+    db.commit()
+    
+    return TaskOut.model_validate(task)
 
 @router.delete("/{task_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_task(
@@ -257,10 +287,10 @@ def assign_users_to_task(
         title=task.title,
         description=task.description,
         due_date=task.due_date,
-        owner=UserOut.model_validate(task.owner, from_attributes=True),
+        owner=UserOut.model_validate(task.owner),
         created_at=task.created_at,
         updated_at=task.updated_at,
-        assignees=[UserOut.model_validate(user, from_attributes=True) for user in assignees]
+        assignees=[UserOut.model_validate(user) for user in assignees]
     )
 
 @router.delete("/{task_id}/assignees/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
