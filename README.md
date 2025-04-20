@@ -47,6 +47,14 @@ Request body:
   "password": "string"
 }
 ```
+
+### Users
+- **List users**: `GET /users`  
+**Access**: Authenticated users  
+Query parameters:  
+    - `keyword` (optional): Filter users by username containing this keyword  
+
+### Tasks
 - **Create task**: `POST /tasks`  
 **Access**: Authenticated users  
 Request body:
