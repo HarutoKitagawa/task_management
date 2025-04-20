@@ -25,4 +25,60 @@ make migrate-up
 ```
 
 ## How to use
-- To check the API specification in detail, please visit http://localhost:8000/docs after starting the server.
+The Swagger UI is available at http://localhost:8000/docs — you can use it to view and test the API after starting the server.
+- To create a new user, you can use the `/signup` endpoint.
+- To login, please click on the "Authorize" button in the top right corner of the Swagger UI and enter your username and password. This will allow you to access the endpoints that require authentication.
+
+## API Spec
+- Sign up: `POST /signup`
+Request body:
+```json
+{
+  "username": "string",
+  "password": "string"
+}
+```
+- Login: `POST /login`
+Request body:
+```json
+{
+  "username": "string",
+  "password": "string"
+}
+```
+- **Create task**: `POST /tasks`  
+**Access**: Authenticated users  
+Request body:
+```json
+{
+    "title": "string",
+    "description": "string",
+    "due_date": "string (optional, ISO 8601 format)"
+}
+```
+- **Get all tasks**: `GET /tasks`  
+**Access**: Authenticated users (returns tasks created by or assigned to the user)  
+- **Get task by ID**: `GET /tasks/{task_id}`  
+**Access**: Task creator or assignee  
+- **Update task**: `PUT /tasks/{task_id}`  
+**Access**: Only the task creator  
+Request body:
+```json
+{
+    "title": "string (optional)",
+    "description": "string (optional)",
+    "due_date": "string (optional, ISO 8601 format)"
+}
+```
+- **Delete task**: `DELETE /tasks/{task_id}`  
+**Access**: Only the task creator  
+- **Assign users to a task**: `POST /tasks/{task_id}/assignees`  
+**Access**: Only the task creator  
+Request body:
+```json
+{
+    "user_ids": [1, 2, 3]
+}
+```
+- **Remove a user from a task**: `DELETE /tasks/{task_id}/assignees/{user_id}`  
+**Access**: Only the task creator
