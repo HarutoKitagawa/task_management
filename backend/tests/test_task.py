@@ -6,42 +6,6 @@ from src.backend.main import app
 client = TestClient(app)
 
 @pytest.fixture
-def user1():
-    # Create a test user
-    signup_data = {
-        "username": "taskuser1",
-        "password": "securepassword123"
-    }
-    client.post("/signup", json=signup_data)
-    
-    # Login to get token
-    login_data = {
-        "username": "taskuser1",
-        "password": "securepassword123"
-    }
-    response = client.post("/login", data=login_data)
-    json_data = response.json()
-    return json_data['id'], json_data["token"]["access_token"]
-
-@pytest.fixture
-def user2():
-    # Create another test user
-    signup_data = {
-        "username": "taskuser2",
-        "password": "securepassword123"
-    }
-    client.post("/signup", json=signup_data)
-    
-    # Login to get token
-    login_data = {
-        "username": "taskuser2",
-        "password": "securepassword123"
-    }
-    response = client.post("/login", data=login_data)
-    json_data = response.json()
-    return json_data['id'], json_data["token"]["access_token"]
-
-@pytest.fixture
 def create_task(user1):
     """Fixture to create a task and return its ID"""
     task_data = {
