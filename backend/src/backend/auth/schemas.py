@@ -18,5 +18,7 @@ class UserOut(BaseModel):
 
 class SignupOut(UserOut):
     pass
-class LoginOut(UserOut):
-    token: Token
+
+class LoginOut(Token):
+    id: int
+    username: str = Field(..., max_length=255)

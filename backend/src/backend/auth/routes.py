@@ -46,8 +46,6 @@ def login_for_access_token(
     return LoginOut(
         id=user.id,
         username=user.username,
-        token={
-            "access_token": access_token,
-            "token_type": "bearer"
-        }
+        access_token=access_token,
+        token_type="bearer"
     )

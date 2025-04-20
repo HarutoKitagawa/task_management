@@ -21,7 +21,6 @@ def test_signup_and_login():
     assert response.status_code == 200
     json_data = response.json()
     assert "id" in json_data
-    assert "token" in json_data
-    token = json_data["token"]
-    assert "access_token" in token
-    assert token["token_type"] == "bearer"
+    assert "access_token" in json_data
+    assert "token_type" in json_data
+    assert json_data["token_type"] == "bearer"
