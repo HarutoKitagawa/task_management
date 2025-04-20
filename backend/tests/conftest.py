@@ -46,7 +46,7 @@ def user1():
     }
     response = client.post("/login", data=login_data)
     json_data = response.json()
-    return json_data['id'], json_data["token"]["access_token"]
+    return json_data['id'], json_data["access_token"]
 
 @pytest.fixture
 def user2():
@@ -64,4 +64,4 @@ def user2():
     }
     response = client.post("/login", data=login_data)
     json_data = response.json()
-    return json_data['id'], json_data["token"]["access_token"]
+    return json_data['id'], json_data["access_token"]
