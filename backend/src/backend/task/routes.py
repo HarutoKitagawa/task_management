@@ -1,42 +1,14 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from typing import List
 from datetime import datetime, timezone
 
 from ..auth.dependencies import get_current_user
 from ..database import get_db
 from ..models import User, Task, TaskAssignee
+from .permission import get_task_with_perticipant_check, get_task_with_owner_check
 from .schemas import *
 
 router = APIRouter(prefix="/tasks", tags=["tasks"])
-
-# Helper function to check if user is the owner of a task
-def check_task_owner(task: Task, user: User):
-    if task.owner_id != user.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to perform this action"
-        )
-
-# Helper function to check if user has access to a task (owner or assignee)
-def check_task_access(task: Task, user: User, db: Session):
-    # Check if user is the owner
-    if task.owner_id == user.id:
-        return True
-    
-    # Check if user is assigned to the task
-    assignee = db.query(TaskAssignee).filter(
-        TaskAssignee.task_id == task.id,
-        TaskAssignee.user_id == user.id,
-        TaskAssignee.deleted_at.is_(None)
-    ).first()
-    
-    if not assignee:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to access this task"
-        )
-    return True
 
 @router.post("", response_model=TaskOut, status_code=status.HTTP_201_CREATED)
 def create_task(
@@ -89,24 +61,9 @@ def get_tasks(
 
 @router.get("/{task_id}", response_model=TaskDetailOut)
 def get_task(
-    task_id: int,
+    task: Task = Depends(get_task_with_perticipant_check),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    task = db.query(Task).filter(
-        Task.id == task_id,
-        Task.deleted_at.is_(None)
-    ).first()
-    
-    if not task:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Task not found"
-        )
-    
-    # Check if user has access to this task
-    check_task_access(task, current_user, db)
-    
+):  
     # Get assignees
     assignees = db.query(User).join(
         TaskAssignee, User.id == TaskAssignee.user_id
@@ -129,25 +86,10 @@ def get_task(
 
 @router.put("/{task_id}", response_model=TaskOut)
 def update_task(
-    task_id: int,
     task_update: TaskUpdate,
+    task: Task = Depends(get_task_with_owner_check),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
 ):
-    task = db.query(Task).filter(
-        Task.id == task_id,
-        Task.deleted_at.is_(None)
-    ).first()
-    
-    if not task:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Task not found"
-        )
-    
-    # Check if user is the owner
-    check_task_owner(task, current_user)
-    
     # Update fields if provided
     if task_update.title is not None:
         task.title = task_update.title
@@ -166,25 +108,10 @@ def update_task(
 
 @router.patch("/{task_id}/status", response_model=TaskOut)
 def update_task_status(
-    task_id: int,
     task_status_update: TaskStatusUpdate,
+    task: Task = Depends(get_task_with_perticipant_check),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    task = db.query(Task).filter(
-        Task.id == task_id,
-        Task.deleted_at.is_(None)
-    ).first()
-    
-    if not task:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Task not found"
-        )
-    
-    # Check if user is the owner or assignee
-    check_task_access(task, current_user, db)
-    
+):    
     # Update status
     task.status = task_status_update.status
     task.updated_at = datetime.now(timezone.utc)
@@ -194,24 +121,9 @@ def update_task_status(
 
 @router.delete("/{task_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_task(
-    task_id: int,
+    task: Task = Depends(get_task_with_owner_check),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
 ):
-    task = db.query(Task).filter(
-        Task.id == task_id,
-        Task.deleted_at.is_(None)
-    ).first()
-    
-    if not task:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Task not found"
-        )
-    
-    # Check if user is the owner
-    check_task_owner(task, current_user)
-    
     # Soft delete
     task.deleted_at = datetime.now(timezone.utc)
     db.commit()
@@ -220,25 +132,10 @@ def delete_task(
 
 @router.post("/{task_id}/assignees", response_model=TaskDetailOut)
 def assign_users_to_task(
-    task_id: int,
     assignee_data: TaskAssigneeCreate,
+    task: Task = Depends(get_task_with_owner_check),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    task = db.query(Task).filter(
-        Task.id == task_id,
-        Task.deleted_at.is_(None)
-    ).first()
-    
-    if not task:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Task not found"
-        )
-    
-    # Check if user is the owner
-    check_task_owner(task, current_user)
-    
+):    
     # Verify all users exist
     user_ids = assignee_data.user_ids
     users = db.query(User).filter(User.id.in_(user_ids)).all()
@@ -285,6 +182,7 @@ def assign_users_to_task(
         title=task.title,
         description=task.description,
         due_date=task.due_date,
+        status=task.status,
         owner=UserOut.model_validate(task.owner),
         created_at=task.created_at,
         updated_at=task.updated_at,
@@ -293,25 +191,10 @@ def assign_users_to_task(
 
 @router.delete("/{task_id}/assignees/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
 def remove_assignee_from_task(
-    task_id: int,
     user_id: int,
+    task: Task = Depends(get_task_with_owner_check),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
 ):
-    task = db.query(Task).filter(
-        Task.id == task_id,
-        Task.deleted_at.is_(None)
-    ).first()
-    
-    if not task:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Task not found"
-        )
-    
-    # Check if user is the owner
-    check_task_owner(task, current_user)
-    
     # Find the assignee
     assignee = db.query(TaskAssignee).filter(
         TaskAssignee.task_id == task.id,
