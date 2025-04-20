@@ -39,6 +39,10 @@ class TaskOut(TaskBase):
         from_attributes=True,
     )
 
+class TasksGetOut(BaseModel):
+    owned_tasks: List[TaskOut] = []
+    assigned_tasks: List[TaskOut] = []
+
 class TaskDetailOut(TaskOut):
     assignees: List[UserOut] = []
 
