@@ -17,3 +17,5 @@ migrate-reset:
 	else \
 		echo "Operation cancelled."; \
 	fi
+pytest:
+	docker-compose exec backend poetry run pytest
